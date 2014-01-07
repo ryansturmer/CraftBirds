@@ -75,12 +75,14 @@ class Player(object):
         self.position = (0.0,0.0,0.0,0.0,0.0)
         self.nick = ''
         self.id = None
+
     def __str__(self):
         if self.ready:
             x,y,z,rx,ry = self.position
             return "<Player id=%d '%s' at %0.3f, %0.3f, %0.3f, %0.3f, %0.3f>" % (self.id, self.nick, x,y,z,rx,ry)
         else:
             return "<Player Not Ready>"
+
 
     @property
     def ready(self):
@@ -111,6 +113,7 @@ class Client(object):
         self.players = {}
         self.queues = {}
         self.input_buffers = {}
+        self.talk_handlers = []
         self.handlers = {
             'T' : self.on_talk,
             'K' : self.on_key,
@@ -120,8 +123,13 @@ class Client(object):
             'P' : self.on_position,
             'N' : self.on_nick
         }
+        self.opponents = {}
+        self.opponent_positions = {}
         self.world = World()
         self.run()
+
+    def add_talk_handler(self, handler):
+        self.talk_handlers.append(handler)
 
     @property
     def ready(self):
@@ -134,6 +142,12 @@ class Client(object):
                     return player
             return None
 
+    def get_player_by_nick(self, nick):
+        with self.lock:
+            for player in self.sockets:
+                if player.nick == nick:
+                    return player
+            return None
     def add_player(self, nick=None):
         player = Player(self)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -167,11 +181,16 @@ class Client(object):
             handler(player, *args)
 
     def on_talk(self, player, *args):
-        pass
+        if self.talk_handlers:
+            for handler in self.talk_handlers:
+                handler(args[1])
 
     def on_position(self, player, *args):
-        client_id = int(args[1])
+        id = int(args[1])
         x,y,z,rx,ry = map(float, args[2:])
+        if id in self.opponents:
+            nick = self.opponents[id]
+            self.opponent_positions[nick] = (x,y,z,rx,ry)
 
     def on_key(self, player, *args):
         pass
@@ -195,6 +214,8 @@ class Client(object):
         player = self.get_player_by_id(id)
         if player:
             player.nick = nick
+            return
+        self.opponents[id] = nick
 
 
     def on_unhandled(self, player, *args):
