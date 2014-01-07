@@ -16,6 +16,28 @@ TALK = 'T'
 KEY = 'K'
 NICK = 'N'
 
+class TalkFilter(object):
+    def __init__(self, window = 5.0):
+        self.index = {}
+        self.window = window
+
+    def filter(self, text):
+        t = time.time()
+        if text in self.index:
+            if abs(t - self.index[text]) > self.window:
+                del self.index[text]
+                return text
+            else:
+                return None
+        else:
+            self.index[text] = t
+            return text
+
+        for text, tt in self.index.items():
+            if abs(time, tt) > self.window:
+                del self.index[text]
+
+
 def thread(f):
     def run(*k, **kw):
         t = threading.Thread(target=f, args=k, kwargs=kw)
@@ -125,6 +147,7 @@ class Client(object):
         }
         self.opponents = {}
         self.opponent_positions = {}
+        self.talkfilter = TalkFilter()
         self.world = World()
         self.run()
 
@@ -181,7 +204,8 @@ class Client(object):
             handler(player, *args)
 
     def on_talk(self, player, *args):
-        if self.talk_handlers:
+        text = self.talkfilter.filter(args[1])
+        if text and self.talk_handlers:
             for handler in self.talk_handlers:
                 handler(args[1])
 

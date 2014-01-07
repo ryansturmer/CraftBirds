@@ -23,7 +23,7 @@ BOID_GRAVITY = 0.1                  # Force pulling boids inward towards their c
 BOID_TARGET_GRAVITY = 0.1          # Flocking towards a target
 BOID_PERSONAL_SPACE = 4.0           # How close a boid has to be to another boid to provoke it to start steering away
 BOID_OBEDIENCE = 0.01              # Boid tendency to match speed with other boids in the flock
-BOID_COUNT = 10                     # Number of boids in the flock
+BOID_COUNT = 20                     # Number of boids in the flock
 BOID_STEPS_PER_UPDATE = 20          # Simulation timestep
 BOID_UPDATE_INTERVAL = 0.5          # Update interval
 BOID_SCALE = 1.0                    # Scale factor that translates the simulated velocities
@@ -86,15 +86,18 @@ class BoidsModel(object):
             self.flock_target = v
             self.bound = False
 
-    def chillout(self):
+    def adjust_velocity(self, x):
         with self.lock:
             for boid in self.boids:
-                boid.velocity /= 2.0
+                boid.velocity *= float(x)
 
     def recenter(self, v):
         with self.lock:
             self.bounds_center = array(v)
 
+    def adjust_gravity(self, x):
+        with self.lock:
+            self.gravity *= float(x)
     def run(self, iterations=None):
         # Evaluation means run a simulation timestep
         # Update means run the self.update_function to update the view
@@ -247,16 +250,20 @@ if __name__ == '__main__':
                     pos = client.opponent_positions.get(nick, None)
                     if pos:
                         x,y,z,rx,ry = pos
-                        print 'attacking target at %s' % (pos,)
                         model.set_flock_target(array([x,y,z]))
                 elif cmd == 'come':
                     player = client.get_player_by_nick(player)
                     if player:
-                        print 'recentering'
                         x,y,z,rx,ry = player.position
                         model.recenter(array([x,y,z]))
-                elif cmd == 'chillout':
-                    model.chillout()
+                elif cmd == 'huddleup':
+                    model.adjust_gravity(2.0)
+                elif cmd == 'breakup':
+                    model.adjust_gravity(0.5)
+                elif cmd == 'slowdown':
+                    model.adjust_velocity(0.5)
+                elif cmd == 'speedup':
+                    model.adjust_velocity(2.0)
 
         except Exception, e:
             print "Invalid command: '%s'" % s
